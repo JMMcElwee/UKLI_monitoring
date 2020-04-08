@@ -46,21 +46,22 @@ int main(int argc, char *argv[]){
 	break;
       case 'd':
 	opAng = 40.0;
-	beamType = "DIFFUSER";
+	beamType = "diffuser";
 	break;
       case 'c':
 	opAng = 2.0;
-	beamType = "COLLIMATOR";
+	beamType = "collimator";
 	break;
       case 'f':
 	rFile = optarg;
 	//	std::cout << "\033[1;34m[INFO]\033[0m Analysing file " << rFile << std::endl;
 	break;
       case ':':
-	std::cout << "\033[1;31m[ERROR]\033[0m " << optarg << " needs an argument." << std::endl;
+	//std::cout << " << optopt << " needs an argument." << std::endl;
+	printf("\033[1;31m[ERROR]\033[0m -%c requires an argument.\n",optopt);
 	return 0;
       case '?':
-	std::cout << "\033[1;33m[ERROR]\033[0m " << "Unknown argument... just going to ignore it." << std::endl;
+	printf("\033[1;33m[ERROR]\033[0m -%c is an unknown argument... just ignoring it.\n",optopt);
 	break;
       }
   }
@@ -76,8 +77,16 @@ int main(int argc, char *argv[]){
     return 0;
   }
 
+  std::ifstream fIsAlive(rFile);
+  if (!fIsAlive) {
+    std::cout << "\033[1;31m[ERROR]\033[0m " << rFile 
+	      << " does not exist. Please supply real file." << std::endl;
+    return 0;
+  }
+
+
   std::cout << "\033[1;34m[INFO]\033[0m Using injector position: " << injPos << std::endl;
-  std::cout << "\033[1;34m[INFO]\033[0m Analysing beam type: " << beamType << opAng << std::endl;
+  std::cout << "\033[1;34m[INFO]\033[0m Analysing beam type: " << beamType << std::endl;
   std::cout << "\033[1;34m[INFO]\033[0m Reading in ROOT file: " << std::endl;
 
   TFile infile(rFile.c_str(),"READ");
@@ -129,9 +138,10 @@ int main(int argc, char *argv[]){
   std::cout << "\033[1;34m[INFO]\033[0m Creating file " << filename << std::endl;
   dataFile << "run subrun month day hour minute second nev_tot nev_spot totQ spotQ\n";
 
-
+  
   // Main Event loop over TTree
-  for (Int_t evnt =0; evnt < intree->GetEntries(); ++evnt){
+  int nEvnt = intree->GetEntries();
+  for (Int_t evnt =0; evnt < nEvnt; ++evnt){
 
     intree->GetEntry(evnt);
     if ((evnt + 1) % 10000 == 0){
@@ -165,7 +175,7 @@ int main(int argc, char *argv[]){
   
   }
 
-  std::cout << "\033[1;34m[INFO]\033[0m Closing data.txt." << std::endl;
+  std::cout << "\033[1;34m[INFO]\033[0m Closing " << filename << "." << std::endl;
   dataFile.close();
   
   return 0;
