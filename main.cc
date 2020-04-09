@@ -1,4 +1,4 @@
-/* ---------------- totQ.cc ---------------- *
+/* ---------------- main.cc ---------------- *
  * This will extract a variety of variables  * 
  * from the diffuser root files for the UK   *
  * light injection system.                   *
@@ -6,6 +6,7 @@
  * SOFTWARE REQUIRED:                        *
  * ---> ROOT                                 *
  * ---> position.h                           *
+ * ---> rndFunc.h                            *
  *                                           *
  *                jmmcelwee1@sheffield.ac.uk *
  * ------------------------- J. McElwee ---- */
@@ -15,6 +16,11 @@
 #include <cmath>
 #include <math.h>
 #include <fstream>
+#include <numeric>
+#include <unistd.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <typeinfo>
 #include "TFile.h"
 #include "TTree.h"
 #include "TCanvas.h"
@@ -22,20 +28,70 @@
 #include "TLegend.h"
 #include "TVector3.h"
 #include "position.h"
+#include "rndFunc.h"
 
-int main(int argc, char const *argv[]){
+int main(int argc, char *argv[]){
 
-  std::string injPos = "B5";
-  TVector3 inj(1490.73, 768.14, injector(injPos));
+  std::string rFile = "";
+  std::string injPos = "B1";
+  std::string beamType = "diffuser";
+  float opAng = 40.0;
 
-  if (argc != 2){
-    std::cout << "\033[1;31m[ERROR]\033[0m Incorrect number of arguments." << std::endl;
-    return 0;
-  }else{
-    std::cout << "\033[1;34m[INFO]\033[0m Reading in ROOT file:" << std::endl;
+  int opt;
+  while ((opt = getopt(argc, argv, ":dchi:f:")) != -1){
+    switch (opt)
+      {
+      case 'h':
+	help();
+	return 0;
+      case'i':
+	injPos = optarg;
+	break;
+      case 'd':
+	opAng = 40.0;
+	beamType = "diffuser";
+	break;
+      case 'c':
+	opAng = 3.0;
+	beamType = "collimator";
+	break;
+      case 'f':
+	rFile = optarg;
+	//	std::cout << "\033[1;34m[INFO]\033[0m Analysing file " << rFile << std::endl;
+	break;
+      case ':':
+	//std::cout << " << optopt << " needs an argument." << std::endl;
+	printf("\033[1;31m[ERROR]\033[0m -%c requires an argument.\n",optopt);
+	return 0;
+      case '?':
+	printf("\033[1;33m[ERROR]\033[0m -%c is an unknown argument... just ignoring it.\n",optopt);
+	break;
+      }
   }
 
-  TFile infile(argv[1],"READ");
+
+  TVector3 inj(1490.73, 768.14, injector(injPos));
+
+
+  if (rFile == ""){
+    std::cout << "\033[1;31m[ERROR]\033[0m What am I supposed to do without a file?" << std::endl;
+    //std::cout << "\033[1;33m[ERROR]\033[0m Please enter a file to analyse: ";
+    //std::cin>>rFile;
+    return 0;
+  }
+
+  std::ifstream fIsAlive(rFile);
+  if (!fIsAlive) {
+    std::cout << "\033[1;31m[ERROR]\033[0m " << rFile 
+	      << " does not exist. Please supply real file." << std::endl;
+    return 0;
+  }
+
+  std::cout << "\033[1;34m[INFO]\033[0m Using injector position: " << injPos << std::endl;
+  std::cout << "\033[1;34m[INFO]\033[0m Analysing beam type: " << beamType << std::endl;
+  std::cout << "\033[1;34m[INFO]\033[0m Reading in ROOT file: " << std::endl;
+
+  TFile infile(rFile.c_str(),"READ");
   TTree *intree = 0;
   infile.GetObject("tqtree", intree);
   infile.ls();
@@ -79,16 +135,18 @@ int main(int argc, char const *argv[]){
 
   // Create and open file for pushing data to
   std::ofstream dataFile;
-  dataFile.open("data.txt");
-  std::cout << "\033[1;34m[INFO]\033[0m Creating file data.txt." << std::endl;
+  std::string filename = beamType + "_" + injPos + "_" + "extr.dat";
+  dataFile.open(filename);
+  std::cout << "\033[1;34m[INFO]\033[0m Creating file " << filename << std::endl;
   dataFile << "run subrun month day hour minute second nev_tot nev_spot totQ spotQ\n";
 
-
+  
   // Main Event loop over TTree
-  for (Int_t evnt =0; evnt < intree->GetEntries(); ++evnt){
+  int nEvnt = intree->GetEntries();
+  for (Int_t evnt =0; evnt < nEvnt; ++evnt){
 
     intree->GetEntry(evnt);
-    if ((evnt + 1) % 5000 == 0){
+    if ((evnt + 1) % 10000 == 0){
       std::cout << "\033[1;34m[INFO]\033[0m Processing event number: " << evnt + 1 << std::endl;
     }
      
@@ -102,7 +160,7 @@ int main(int argc, char const *argv[]){
       TVector3 b = -inj;
 
       float theta = a.Angle(b) * 180 / M_PI; 
-      if (theta < 40.0){
+      if (theta < opAng){
       	nev_spot += 1;
 	spotQ += charge_vec->at(count);
       }
@@ -119,8 +177,8 @@ int main(int argc, char const *argv[]){
   
   }
 
-  std::cout << "\033[1;34m[INFO]\033[0m Closing data.txt." << std::endl;
+  std::cout << "\033[1;34m[INFO]\033[0m Closing " << filename << "." << std::endl;
   dataFile.close();
-
+  
   return 0;
 }
