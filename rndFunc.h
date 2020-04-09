@@ -4,5 +4,6 @@
 #include <string>
 
 std::string convertToString(char *arr);
+void help();
 
 #endif

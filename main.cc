@@ -1,4 +1,4 @@
-/* ---------------- totQ.cc ---------------- *
+/* ---------------- main.cc ---------------- *
  * This will extract a variety of variables  * 
  * from the diffuser root files for the UK   *
  * light injection system.                   *
@@ -38,9 +38,12 @@ int main(int argc, char *argv[]){
   float opAng = 40.0;
 
   int opt;
-  while ((opt = getopt(argc, argv, ":dci:f:")) != -1){
+  while ((opt = getopt(argc, argv, ":dchi:f:")) != -1){
     switch (opt)
       {
+      case 'h':
+	help();
+	return 0;
       case'i':
 	injPos = optarg;
 	break;
@@ -49,7 +52,7 @@ int main(int argc, char *argv[]){
 	beamType = "diffuser";
 	break;
       case 'c':
-	opAng = 2.0;
+	opAng = 3.0;
 	beamType = "collimator";
 	break;
       case 'f':
@@ -83,7 +86,6 @@ int main(int argc, char *argv[]){
 	      << " does not exist. Please supply real file." << std::endl;
     return 0;
   }
-
 
   std::cout << "\033[1;34m[INFO]\033[0m Using injector position: " << injPos << std::endl;
   std::cout << "\033[1;34m[INFO]\033[0m Analysing beam type: " << beamType << std::endl;
