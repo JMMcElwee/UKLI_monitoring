@@ -36,7 +36,10 @@ int main(int argc, char *argv[]){
   std::string injPos = "B1";
   std::string beamType = "diffuser";
   float opAng = 40.0;
+  float timeLowCut = 1150.0;
+  float timeHighCut = 1450.0;
 
+  
   int opt;
   while ((opt = getopt(argc, argv, ":dchi:f:")) != -1){
     switch (opt)
@@ -49,10 +52,14 @@ int main(int argc, char *argv[]){
 	break;
       case 'd':
 	opAng = 40.0;
+	timeLowCut = 1150.0;
+	timeHighCut = 1450.0;
 	beamType = "diffuser";
 	break;
       case 'c':
-	opAng = 3.0;
+	opAng = 2.0;
+	timeLowCut = 1240.0;
+	timeHighCut = 1400.0;
 	beamType = "collimator";
 	break;
       case 'f':
@@ -146,7 +153,7 @@ int main(int argc, char *argv[]){
   for (Int_t evnt =0; evnt < nEvnt; ++evnt){
 
     intree->GetEntry(evnt);
-    if ((evnt + 1) % 10000 == 0){
+    if ((evnt + 1) % 500 == 0){
       std::cout << "\033[1;34m[INFO]\033[0m Processing event number: " << evnt + 1 << std::endl;
     }
      
@@ -160,11 +167,14 @@ int main(int argc, char *argv[]){
       TVector3 b = -inj;
 
       float theta = a.Angle(b) * 180 / M_PI; 
-      if (theta < opAng){
+      /*if (theta < opAng){
       	nev_spot += 1;
 	spotQ += charge_vec->at(count);
+	}*/
+      if (time_vec->at(count) > timeLowCut && time_vec->at(count) < timeHighCut){
+	nev_spot +=1;
+	spotQ += charge_vec->at(count);
       }
-      
     }
 
 
