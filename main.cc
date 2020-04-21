@@ -32,13 +32,19 @@
 
 int main(int argc, char *argv[]){
 
+
+  // Default Values for arguments
   std::string rFile = "";
   std::string injPos = "B1";
   std::string beamType = "diffuser";
   float opAng = 40.0;
+  float timeLowCut = 1150.0;
+  float timeHighCut = 1450.0;
+  int fnameSwitch = 0;
+  std::string filename = "";
 
   int opt;
-  while ((opt = getopt(argc, argv, ":dchi:f:")) != -1){
+  while ((opt = getopt(argc, argv, ":dchi:f:o:")) != -1){
     switch (opt)
       {
       case 'h':
@@ -49,18 +55,24 @@ int main(int argc, char *argv[]){
 	break;
       case 'd':
 	opAng = 40.0;
+	timeLowCut = 1150.0;
+	timeHighCut = 1450.0;
 	beamType = "diffuser";
 	break;
       case 'c':
-	opAng = 3.0;
+	opAng = 2.0;
+	timeLowCut = 1240.0;
+	timeHighCut = 1400.0;
 	beamType = "collimator";
 	break;
       case 'f':
 	rFile = optarg;
-	//	std::cout << "\033[1;34m[INFO]\033[0m Analysing file " << rFile << std::endl;
+	break;
+      case 'o':
+	fnameSwitch = 1;
+	filename = optarg;
 	break;
       case ':':
-	//std::cout << " << optopt << " needs an argument." << std::endl;
 	printf("\033[1;31m[ERROR]\033[0m -%c requires an argument.\n",optopt);
 	return 0;
       case '?':
@@ -75,8 +87,6 @@ int main(int argc, char *argv[]){
 
   if (rFile == ""){
     std::cout << "\033[1;31m[ERROR]\033[0m What am I supposed to do without a file?" << std::endl;
-    //std::cout << "\033[1;33m[ERROR]\033[0m Please enter a file to analyse: ";
-    //std::cin>>rFile;
     return 0;
   }
 
@@ -135,7 +145,7 @@ int main(int argc, char *argv[]){
 
   // Create and open file for pushing data to
   std::ofstream dataFile;
-  std::string filename = beamType + "_" + injPos + "_" + "extr.dat";
+  if (fnameSwitch == 0) filename = beamType + "_" + injPos + "_" + "extr.dat";  
   dataFile.open(filename);
   std::cout << "\033[1;34m[INFO]\033[0m Creating file " << filename << std::endl;
   dataFile << "run subrun month day hour minute second nev_tot nev_spot totQ spotQ\n";
@@ -146,7 +156,7 @@ int main(int argc, char *argv[]){
   for (Int_t evnt =0; evnt < nEvnt; ++evnt){
 
     intree->GetEntry(evnt);
-    if ((evnt + 1) % 10000 == 0){
+    if ((evnt + 1) % 500 == 0){
       std::cout << "\033[1;34m[INFO]\033[0m Processing event number: " << evnt + 1 << std::endl;
     }
      
@@ -160,11 +170,14 @@ int main(int argc, char *argv[]){
       TVector3 b = -inj;
 
       float theta = a.Angle(b) * 180 / M_PI; 
-      if (theta < opAng){
+      /*if (theta < opAng){
       	nev_spot += 1;
 	spotQ += charge_vec->at(count);
+	}*/
+      if (time_vec->at(count) > timeLowCut && time_vec->at(count) < timeHighCut){
+	nev_spot +=1;
+	spotQ += charge_vec->at(count);
       }
-      
     }
 
 
