@@ -33,7 +33,8 @@
 int main(int argc, char *argv[]){
 
 
-  // Default Values for arguments
+  // ORGANISING ARGUMENT FLAGS
+  // Set default values 
   std::string rFile = "";
   std::string injPos = "B1";
   std::string beamType = "diffuser";
@@ -43,6 +44,7 @@ int main(int argc, char *argv[]){
   int fnameSwitch = 0;
   std::string filename = "";
 
+  // Search command options for flags
   int opt;
   while ((opt = getopt(argc, argv, ":dchi:f:o:")) != -1){
     switch (opt)
@@ -82,14 +84,15 @@ int main(int argc, char *argv[]){
   }
 
 
+  // PERFORM FILE AND VARIABLE CHECKS
+  // Check for correct injector position
   TVector3 inj(1490.73, 768.14, injector(injPos));
 
-
+  // Check for input file and that it exists 
   if (rFile == ""){
     std::cout << "\033[1;31m[ERROR]\033[0m What am I supposed to do without a file?" << std::endl;
     return 0;
   }
-
   std::ifstream fIsAlive(rFile);
   if (!fIsAlive) {
     std::cout << "\033[1;31m[ERROR]\033[0m " << rFile 
@@ -101,6 +104,8 @@ int main(int argc, char *argv[]){
   std::cout << "\033[1;34m[INFO]\033[0m Analysing beam type: " << beamType << std::endl;
   std::cout << "\033[1;34m[INFO]\033[0m Reading in ROOT file: " << std::endl;
 
+
+  // READ INPUT FILE AND SETUP VARIABLES
   TFile infile(rFile.c_str(),"READ");
   TTree *intree = 0;
   infile.GetObject("tqtree", intree);
@@ -124,6 +129,10 @@ int main(int argc, char *argv[]){
   std::vector<double> *pmtx_vec = 0;
   std::vector<double> *pmty_vec = 0;
   std::vector<double> *pmtz_vec = 0;
+  std::vector<int> *mon_ihit_vec = 0;
+  std::vector<int> *mon_cable_vec = 0;
+  std::vector<float> *mon_charge_vec = 0;
+  std::vector<double> *mon_time_vec = 0;
   
   intree->SetBranchAddress("year", &year);
   intree->SetBranchAddress("month", &month);
@@ -141,17 +150,22 @@ int main(int argc, char *argv[]){
   intree->SetBranchAddress("pmtx_vec", &pmtx_vec);
   intree->SetBranchAddress("pmty_vec", &pmty_vec);
   intree->SetBranchAddress("pmtz_vec", &pmtz_vec);
+  intree->SetBranchAddress("mon_ihit_vec", &mon_ihit_vec);
+  intree->SetBranchAddress("mon_cable_vec", &mon_cable_vec);
+  intree->SetBranchAddress("mon_charge_vec", &mon_charge_vec);
+  intree->SetBranchAddress("mon_time_vec", &mon_time_vec);
 
 
-  // Create and open file for pushing data to
+  // CREATE FILE FOR PUSHING DATA
   std::ofstream dataFile;
+  // Check if output file name given
   if (fnameSwitch == 0) filename = beamType + "_" + injPos + "_" + "extr.dat";  
   dataFile.open(filename);
   std::cout << "\033[1;34m[INFO]\033[0m Creating file " << filename << std::endl;
-  dataFile << "run subrun month day hour minute second nev_tot nev_spot totQ spotQ\n";
+  dataFile << "run subrun month day hour minute second nev_tot nev_spot totQ spotQ monQ\n";
 
   
-  // Main Event loop over TTree
+  // MAIN EVENT LOOP
   int nEvnt = intree->GetEntries();
   for (Int_t evnt =0; evnt < nEvnt; ++evnt){
 
@@ -161,32 +175,53 @@ int main(int argc, char *argv[]){
     }
      
 
-    float nev_spot = 0;
-    TVector3 pmt;
+    // SK CHARGE AND TIME VECTOR LOOP
+    float nSpot = 0;
     float spotQ = 0;
+    TVector3 pmt;
     for (int count = 0; count < ihit_vec->size(); ++count){
-      pmt.SetXYZ(pmtx_vec->at(count),pmty_vec->at(count),pmtz_vec->at(count));
+      
+      // Time cut for injector events
+      if (time_vec->at(count) > timeLowCut && time_vec->at(count) < timeHighCut){
+	nSpot += 1;
+	spotQ += charge_vec->at(count);
+      }
+
+      // Original spatial cut 
+      /*pmt.SetXYZ(pmtx_vec->at(count),pmty_vec->at(count),pmtz_vec->at(count));
       TVector3 a = pmt - inj;
       TVector3 b = -inj;
-
       float theta = a.Angle(b) * 180 / M_PI; 
-      /*if (theta < opAng){
+      if (theta < opAng){
       	nev_spot += 1;
 	spotQ += charge_vec->at(count);
 	}*/
-      if (time_vec->at(count) > timeLowCut && time_vec->at(count) < timeHighCut){
-	nev_spot +=1;
-	spotQ += charge_vec->at(count);
-      }
     }
-
 
     float totQ = std::accumulate(charge_vec->begin(), charge_vec->end(), 0.0);
     float nev = ihit_vec->size();
 
+
+    // MONITOR CHARGE VECTOR LOOP 
+    float monQ; 
+    int monHits = 0;
+    // Loop to remove erroneous events from monitor vector
+    for (int count=0; count < mon_cable_vec->size(); count++){
+      if (mon_cable_vec->at(count) != 11256) continue;
+      else{
+	monQ = mon_charge_vec->at(count);
+	monHits++;
+      }
+    }
+    if (monHits > 1){
+      std::cout << "\033[1;31m[ERROR]\033[0m Monitor has more than one hit." << std::endl;
+    }
+
+
+    // FILL DATA FILE WITH EVENT INFORMATION 
     dataFile << run << " " << subrun << " " << year << " " << month << " " << day << " "
-             << hour << " " << minute << " " << second << " " << nev << " " << nev_spot 
-	     << " " << totQ << " " << spotQ << "\n";
+             << hour << " " << minute << " " << second << " " << nev << " " << nSpot 
+	     << " " << totQ << " " << spotQ << " " << monQ << "\n";
   
   }
 
